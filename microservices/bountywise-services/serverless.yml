@@ -1,0 +1,51 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: abhishekorg
+# "app" enables Serverless Framework Dashboard features and sharing them with other Services.
+app: bountywise
+# "service" is the name of this project. This will also be added to your AWS resource names.
+service: bountywise-services
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  environment:
+    NODE_ENV: ${env:NODE_ENV,"development"}
+    DATABASE_URL: ${env:DATABASE_URL,"postgresql://bountywise-dev_owner:HcFK9ykflq7s@ep-small-grass-a10gocll.ap-southeast-1.aws.neon.tech/bountywise-dev?sslmode=require"}
+    DATABASE_NAME: ${env:DATABASE_NAME,"dummy_database_name"}
+    DATABASE_USER: ${env:DATABASE_USER,"dummy_database_user"}
+    DATABASE_PASSWORD: ${env:DATABASE_PASSWORD,"dummy_database_password"}
+    DATABASE_PORT: ${env:DATABASE_PORT,"dummy_database_port"}
+    BOUNTY_SERVICE_URL: "/api/bounty/"
+    TAGS_SERVICE_URL: "/api/tags/"
+
+custom:
+  serverless-offline:
+    httpPort: 4000
+    lambdaPort: 4001
+functions:
+  tokenAuthorizer:
+    handler: services/auth-authorizor/handler.handler
+  bounty-services:
+    handler: services/bounty-services/handler.handler
+    events:
+      - http:
+          method: any
+          path: ${self:provider.environment.BOUNTY_SERVICE_URL}{any+}
+          authorizer:
+            name: tokenAuthorizer
+            resultTtlInSeconds: 0
+            identitySource: method.request.header.Cookie
+
+  tags-services:
+    handler: services/tags-services/handler.handler
+    events:
+      - http:
+          method: any
+          path: ${self:provider.environment.TAGS_SERVICE_URL}{any+}
+          authorizer:
+            name: tokenAuthorizer
+            resultTtlInSeconds: 0
+            identitySource: method.request.header.Cookie
+
+plugins:
+  - serverless-offline

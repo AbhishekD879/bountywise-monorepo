@@ -1,0 +1,52 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - 22181:2181
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - 29092:29092
+    depends_on:
+      - zookeeper
+
+  bountywise-client:
+    build: ./client
+    environment:
+      DB_URL: "postgresql://bountywise-dev_owner:HcFK9ykflq7s@ep-small-grass-a10gocll.ap-southeast-1.aws.neon.tech/bountywise-dev?sslmode=require"
+      GOOGLE_CLIENT_ID: "982837141403-mbgoli70btgqqqbtupdkgfnc4q8pblun.apps.googleusercontent.com"
+      GOOGLE_CLIENT_SECRET: "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"
+      GOOGLE_AI_API_KEY: "AIzaSyCWXdzFIMm5fKUUBta5WUTZ18TWSuI-WUk"
+
+      GOOGLE_USERINFO_API: 'https://www.googleapis.com/oauth2/v3/userinfo'
+      # Next Client Side Environment Variables
+      NEXT_PUBLIC_GOOGLE_REDIRECT_URI: "/api/auth/google/callback"
+      NEXT_PUBLIC_ORIGIN: "http://localhost:3000"
+      NEXT_PUBLIC_MAINTENANCE_PAGE: "false"
+
+    ports:
+      - 3000:3000
+    depends_on:
+      - kafka
+
+  db-commit-consumer:
+    build: ./kafka/consumers/db_commit
+    environment:
+      KAFKA_BROKERS: "kafka:9092" # Using service name internally to connect
+      REDIS_PASSWORD : "AW8lAAIjcDEzMTY3NmM0NTE5ODk0ZDljYTEyMTI3NTEyNDc0ZjZlYXAxMA"
+      REDIS_ENDPOINT : "natural-tiger-28453.upstash.io"
+      REDIS_PORT: "6379"
+
+    depends_on:
+      - kafka
