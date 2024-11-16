@@ -6,18 +6,21 @@ import { lucia } from '@/lib/lucia'
 import { google } from '@/lib/oAuth/googleOAuth'
 import { Roles } from '@/lib/roles'
 import db from '@/lib/tembo.db'
-import { bountyTable, userTable } from '@/schema'
+import { userTable } from '@/schema'
 import { generateCodeVerifier, generateState } from 'arctic'
 import { sql } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { Argon2id } from 'oslo/password'
 import { v4 } from 'uuid'
+import BloomFilterSingleton from "@/lib/bloomsetup";
 import kafka from '@/lib/kafka'
+
 if(!kafka){
   throw new Error('Kafka is not initialized')
 }
 const producer = kafka.producer()
+const bloomFilter = BloomFilterSingleton.getInstance()
 // Define the common return object structure
 interface TReturnObject {
   email: string[] | undefined | null
@@ -51,6 +54,14 @@ export async function login(previousState: any, formdata: FormData) {
     returnObject.email = email
     returnObject.password = password
     return returnObject
+  }
+
+  //Bloom filter pre-check
+  const mightExist = bloomFilter.isCombinationInFilter(email);
+  console.log('mightExist', mightExist)
+  if(!mightExist){
+    returnObject.error = 'User not found. Please register.';
+    return returnObject;
   }
 
   // Check if the user exists
@@ -125,15 +136,20 @@ export async function register(previousState: any, formdata: FormData) {
     return returnObject
   }
 
+  //Bloom filter pre-check
+  const mightExist = bloomFilter.isCombinationInFilter(email);
+
   // Check if the user already exists
   try {
-    const existingUser = await db.query.userTable.findFirst({
-      where: sql`${userTable.email} = ${email}`
-    })
+    if(mightExist){
+      const existingUser = await db.query.userTable.findFirst({
+        where: sql`${userTable.email} = ${email}`
+      })
 
-    if (existingUser) {
-      returnObject.error = 'User already exists, please sign in.'
-      return returnObject
+      if (existingUser) {
+        returnObject.error = 'User already exists, please sign in.'
+        return returnObject
+      }
     }
 
     // Hash password and create user
@@ -147,6 +163,8 @@ export async function register(previousState: any, formdata: FormData) {
       roleId: Roles.user,
       profilePicture: `https://robohash.org/${userId}`
     })
+
+    bloomFilter.addCombination(email);
 
     // Create a session and session cookie
     const session = await lucia.createSession(userId, {
@@ -216,7 +234,7 @@ export async function createBounty(previousState: any, formdata: FormData) {
   const budget = formdata.get('budget')
   const currency = formdata.get('currency')
   const deadline = new Date(formdata.get('deadline') as string)
-  const attachments = formdata.get('attachments')
+  // const attachments = formdata.get('attachments')
 
   const validationResult = await bountySchema.safeParseAsync({
     title,

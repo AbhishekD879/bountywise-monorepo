@@ -207,3 +207,13 @@ export const tagTable = pgTable('tags', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()
 })
+
+
+// Bloom Filter State Table
+export const bloomFilterStateTable = pgTable('bloom_filter_state', {
+  id: text('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  state: text('state').notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+

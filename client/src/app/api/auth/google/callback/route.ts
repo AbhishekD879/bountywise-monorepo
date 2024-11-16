@@ -7,6 +7,9 @@ import { sql } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { v4 } from 'uuid'
+import BloomFilterSingleton from "@/lib/bloomsetup";
+
+const bloomFilter = BloomFilterSingleton.getInstance()
 
 async function createUserSession(userId: string) {
   const session = await lucia.createSession(userId, {
@@ -17,7 +20,7 @@ async function createUserSession(userId: string) {
   cookies().set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes)
 }
 
-export async function GET(req: NextRequest, res: NextResponse) {
+export async function GET(req: NextRequest) {
   const url = req.nextUrl
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
@@ -51,26 +54,28 @@ export async function GET(req: NextRequest, res: NextResponse) {
 
     const googleData = await googleResponse.json()
 
-    const user = await db.query.userTable.findFirst({
-      where: sql`${userTable.email} = ${googleData.email}`
-    })
+    const mightExist = bloomFilter.isCombinationInFilter(googleData.email)
 
-    if (user) {
-      // Existing user, create session
-      await createUserSession(user.id)
-    } else {
-      // New user, insert and create session
-      const userId = v4()
-      await db.insert(userTable).values({
-        id: userId,
-        email: googleData.email,
-        roleId: Roles.user,
-        firstName: googleData.given_name,
-        lastName: googleData.family_name,
-        profilePicture: googleData.picture || `https://robohash.org/${userId}`
+    // Can be False Positive But not false negative
+    if(mightExist){
+      const user = await db.query.userTable.findFirst({
+        where: sql`${userTable.email} = ${googleData.email}`
       })
-
-      await createUserSession(userId)
+      if (user) {
+            await createUserSession(user.id)
+      }
+    }else {
+        const userId = v4()
+        await db.insert(userTable).values({
+            id: userId,
+            email: googleData.email,
+            roleId: Roles.user,
+            firstName: googleData.given_name,
+            lastName: googleData.family_name,
+            profilePicture: googleData.picture || `https://robohash.org/${userId}`
+        })
+        await createUserSession(userId)
+        bloomFilter.addCombination(googleData.email);
     }
 
     return NextResponse.redirect(new URL('/', req.url))
