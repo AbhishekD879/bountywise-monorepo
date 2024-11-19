@@ -1,4 +1,4 @@
-import db from "./db";
+import initDb from "./db";
 import * as schema from "./schema";
 
-export { db, schema };
+export { initDb, schema };

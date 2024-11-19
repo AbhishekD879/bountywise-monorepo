@@ -1,6 +1,7 @@
 // import { BaseBufferService } from "./BaseBufferService.js";
 import {BaseBufferService} from "@bountywise/basebuffer"
-
+import {schema} from "@bountywise/dbservice"
+import {db} from "./db.js"
 type Bounty = {
     id: string;
     title:string,
@@ -23,7 +24,7 @@ export default class BountyService extends BaseBufferService<Bounty>{
         console.log(`Inserting ${bounties.length} bounties into the database...`);
         // Add your DB insertion logic here
         // For example: await db.insertMany(bounties);
-
-        // db.insert(bountyTable).values(bounties)
+        (await db).insert(schema.bountyTable).values(bounties)
+        // await db.insert(bountyTable).values(bounties)
     }
 }
