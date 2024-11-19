@@ -39,7 +39,7 @@ export class BufferClient {
         // Map topics to services
         this.services = new Map(
             config.bufferServices.map(({ topic, service }) => {
-                service["redisClient"] = this.redis; // Inject Redis client dynamically
+                service.setRedisClient(this.redis);
                 return [topic, service];
             })
         );

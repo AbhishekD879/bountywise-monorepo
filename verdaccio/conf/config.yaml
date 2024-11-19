@@ -1,0 +1,24 @@
+# Path to storage for packages
+storage: /verdaccio/storage
+
+# Maximum number of log entries retained (defaults to 1000)
+logs:
+  - { type: stdout, format: pretty, level: http }
+
+# Configure uplinks (proxy to public npm registry)
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+    max_fails: 2  # Max failed requests before giving up
+    fail_timeout: 60s  # Timeout for proxy requests
+
+packages:
+  '@bountywise/*':
+    access: $authenticated  # Allows authenticated users to access the package
+    publish: bountywise     # Specify the username allowed to publish
+    proxy: npmjs
+
+  '**':
+    access: $all            # Allow everyone to access non-scoped packages
+    publish: $authenticated # Allow authenticated users to publish non-scoped packages
+    proxy: npmjs

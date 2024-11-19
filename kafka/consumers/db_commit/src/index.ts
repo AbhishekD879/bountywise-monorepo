@@ -1,39 +1,34 @@
-// import "dotenv/config";
-import kafka from "./kafkaClient.js";
+
 import BountyService from "./BountyBufferService.js";
+import {BufferClient} from "@bountywise/basebuffer";
 const bountyService = new BountyService()
-async function startKafkaConsumer() {
-    const consumer = kafka.consumer({ groupId: 'bountywise-group' });
-    await consumer.connect();
 
-    // Subscribe to the topics you want to listen to
-    await consumer.subscribe({ topic: 'bounties', fromBeginning: true });
-    // await consumer.subscribe({ topic: 'tasks', fromBeginning: true });
 
-    await consumer.run({
-        eachMessage: async ({ topic, partition, message }) => {
-            const msgValue = JSON.parse(message.value.toString());
-
-            try {
-                // Direct the message to the appropriate service based on the topic
-                if (topic === 'bounties') {
-                    await bountyService.processMessage(msgValue);
-                } else if (topic === 'tasks') {
-                    // await taskService.processMessage(msgValue);
-                }
-            } catch (error) {
-                console.error(`Error processing message from ${topic}:`, error);
-            }
+// Start the buffer client
+const bufferClient = new BufferClient({
+    kafkaConfig: {
+        brokers: ['kafka:9092'],
+        retry: {
+            retries: 5,
+            initialRetryTime: 1000,
+            factor: 2,
         },
-    });
-}
+    },
+    redisConfig: `rediss://default:${process.env.REDIS_PASSWORD}@${process.env.REDIS_ENDPOINT}:${process.env.REDIS_PORT}`,
+    bufferServices: [
+        {
+            topic: 'bounties',
+            service: bountyService,
+        },
+    ],
+});
 
-// Start the Kafka consumer
-startKafkaConsumer().catch(console.error);
+bufferClient.start().catch(console.error);
+
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
     console.log('SIGTERM received, flushing buffers and shutting down...');
-    await Promise.all([bountyService.shutdown()]);
+    await bufferClient.stop()
     process.exit(0);
 });

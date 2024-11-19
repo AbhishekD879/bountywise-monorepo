@@ -9,9 +9,9 @@ export interface BaseBufferServiceConfig {
 export abstract class BaseBufferService<T> {
   private readonly threshold: number;
   private readonly flushInterval: number;
+  private redisClient: Redis;
 
-  constructor(
-      protected redisClient: Redis, // Injected Redis client
+  constructor(// Injected Redis client
       private readonly config: BaseBufferServiceConfig
   ) {
     this.threshold = config.threshold || 3;
@@ -20,6 +20,7 @@ export abstract class BaseBufferService<T> {
   }
 
   async processMessage(message: T): Promise<void> {
+    if(!this.redisClient) throw new Error("Redis client not set");
     await this.redisClient.rpush(this.config.bufferKey, JSON.stringify(message));
 
     const bufferSize = await this.redisClient.llen(this.config.bufferKey);
@@ -29,6 +30,7 @@ export abstract class BaseBufferService<T> {
   }
 
   private async flushToDatabase(): Promise<void> {
+    if(!this.redisClient) throw new Error("Redis client not set");
     const messages = await this.redisClient.lrange(this.config.bufferKey, 0, this.threshold - 1);
     if (messages.length > 0) {
       const parsedMessages = messages.map((msg) => JSON.parse(msg));
@@ -41,6 +43,7 @@ export abstract class BaseBufferService<T> {
 
   private startFlushingInterval(): void {
     setInterval(async () => {
+      if(!this.redisClient) throw new Error("Redis client not set");
       const bufferSize = await this.redisClient.llen(this.config.bufferKey);
       if (bufferSize > 0) {
         await this.flushToDatabase();
@@ -51,5 +54,9 @@ export abstract class BaseBufferService<T> {
   async shutdown(): Promise<void> {
     console.log(`Flushing remaining messages from ${this.config.bufferKey} before shutdown...`);
     await this.flushToDatabase();
+  }
+
+  public setRedisClient(redisClient: Redis): void {
+    this.redisClient = redisClient;
   }
 }

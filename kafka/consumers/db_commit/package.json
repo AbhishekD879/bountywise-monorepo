@@ -26,6 +26,8 @@
     "typescript": "^5.5.3"
   },
   "dependencies": {
+    "@bountywise/basebuffer": "^1.0.0",
+    "@bountywise/dbservice": "^1.0.0",
     "@neondatabase/serverless": "^0.9.5",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.33.0",

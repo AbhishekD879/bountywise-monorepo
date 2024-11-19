@@ -5,7 +5,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
-      - 22181:2181
+      - "22181:2181"
 
   kafka:
     image: confluentinc/cp-kafka:latest
@@ -17,7 +17,7 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     ports:
-      - 29092:29092
+      - "29092:29092"
     depends_on:
       - zookeeper
 
@@ -36,7 +36,7 @@ services:
       NEXT_PUBLIC_MAINTENANCE_PAGE: "false"
 
     ports:
-      - 3000:3000
+      - "3000:3000"
     depends_on:
       - kafka
 
@@ -50,3 +50,31 @@ services:
 
     depends_on:
       - kafka
+
+  verdaccio:
+    image: verdaccio/verdaccio:nightly-master
+    ports:
+      - "4873:4873"
+    volumes:
+      - ./verdaccio/storage:/verdaccio/storage
+      - ./verdaccio/conf:/verdaccio/conf
+    environment:
+      VERDACCIO_PROTOCOL: http
+      VERDACCIO_PORT: 4873
+      VERDACCIO_TITLE: Verdaccio Registry
+    depends_on:
+      - kafka
+      - zookeeper
+
+  npm-publisher:
+    image: node:18
+    volumes:
+      - ./packages:/app/packages  # Mount your package directory
+      - ./publish-packages.sh:/app/publish-packages.sh  # Mount the script
+    environment:
+      VERDACCIO_URL: "http://verdaccio:4873" # Use the Verdaccio service name internally
+    working_dir: /app
+    entrypoint: [ "bash", "/app/publish-packages.sh" ]
+    depends_on:
+      - verdaccio
+

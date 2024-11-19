@@ -1,6 +1,5 @@
-import { BaseBufferService } from "./BaseBufferService.js";
-import db from "./db.js";
-import { bountyTable } from "./schema.js";
+// import { BaseBufferService } from "./BaseBufferService.js";
+import {BaseBufferService} from "@bountywise/basebuffer"
 
 type Bounty = {
     id: string;
@@ -16,7 +15,7 @@ type Bounty = {
 export default class BountyService extends BaseBufferService<Bounty>{
     constructor() {
         // Set bounty-specific configurations (buffer key, threshold, flush interval)
-        super('bounty_buffer', 3, 5 * 60 * 1000);
+        super({threshold:3, flushInterval:5 * 60 * 1000, bufferKey:'bounty_buffer'})
     }
 
     // Implement bulkInsert for bounties
